@@ -1,0 +1,104 @@
+---
+title: "NYC Restaurant Inspection Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+```
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(stringr)
+library(forcats)
+library(viridis)
+library(p8105.datasets)
+library(plotly)
+```
+
+```{r}
+data(rest_inspec)
+
+restaurants = 
+  rest_inspec |>
+  janitor::clean_names() |>
+  select(camis, dba, boro, street, cuisine_description, inspection_date, critical_flag, score, grade, grade_date) |>
+  rename(
+    ID_Number = camis,
+    Restaurant_Name = dba,
+    Borough = boro,
+    Street_Address = street,
+    Cuisine = cuisine_description,
+    Inspection_Date = inspection_date, 
+    Critical = critical_flag, 
+    Score = score, 
+    Grade = grade, 
+    Grade_Date = grade_date
+  ) |>
+  drop_na(Score, Cuisine, Borough, Inspection_Date, Grade, Grade_Date, Critical) |>
+  filter(Borough %in% c("Bronx", "Brooklyn", "Manhattan", "Queens", "Staten Island")) |>
+   mutate(
+    ID_Number = as.character(ID_Number),
+    Restaurant_Name = as.character(Restaurant_Name),
+    Street_Address = as.character(Street_Address),
+    Borough = factor(Borough),
+    Cuisine = factor(Cuisine),
+    Critical  = factor(Critical, 
+                       levels = c("Y", "N"),
+                       labels = c("Critical", "Not Critical")),
+    Grade = factor(Grade, 
+                   levels = c("A", "B", "C"), 
+                   ordered = TRUE),
+    Score = as.numeric(Score),
+    Inspection_Date = as.Date(Inspection_Date),
+    Grade_Date = as.Date(Grade_Date)
+  )
+
+view(restaurants)
+
+inspections =
+  restaurants |>
+  distinct(ID_Number, Inspection_Date, .keep_all = TRUE)
+```
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+### Scatterplot 
+```{r}
+inspections |>
+  filter(Borough == "Manhattan") |>
+  filter(Cuisine %in% c("American", "French", "Indian", "Mexican", "Italian")) |>
+  head(500) |>
+  plot_ly(x = ~Inspection_Date, y = ~Score, color = ~Cuisine,
+    type = "scatter", mode = "markers"
+  ) |>
+  layout(title = "Inspection Scores Over Time in Manhattan by Cuisine")
+```
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+### Boxplot 
+```{r}
+inspections |>
+  plot_ly(x = ~Borough, y = ~Score, color = ~Borough, 
+          type = "box") |>
+  layout(title = "Inspection Scores by Borough")
+```
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+### Bar chart 
+```{r}
+inspections |>
+  count(Borough, Critical) |>
+  filter(Critical == "Critical") |>
+  plot_ly(x = ~Borough, y = ~n, color = ~Borough, 
+    type = "bar"
+  ) |>
+  layout(title = "Number of Critical Inspections by Borough")
+```
+
